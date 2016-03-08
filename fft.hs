@@ -9,7 +9,7 @@ tw n k = cis (-2 * pi * fromIntegral k / fromIntegral n)
 
 -- Discrete Fourier Transform -- O(n^2)
 dft :: [Complex Float] -> [Complex Float]
-dft xs = [ sum [ xs!!j * tw n (j*k) | j <- [0..n']] | k <- [0..n']]
+dft xs = n`par` n' `par` [ sum [ xs!!j * tw n (j*k) | j <- [0..n']] | k <- [0..n']]
   where
     n = length xs
     n' = n-1
@@ -29,10 +29,15 @@ dft xs = [ sum [ xs!!j * tw n (j*k) | j <- [0..n']] | k <- [0..n']]
 
 -- In case you are wondering, this is the Decimation in Frequency (DIF) 
 -- radix 2 Cooley-Tukey FFT
-
+-- 1. bflyS as - divide in half, zip sum and diff into two lists. The first one ready to return, the second one evald with tws and zipped and returned
+-- 2. ls = fft cs
+-- 3. rs = fft ds
+-- (2 and 3 can be parallelised) - including 1!!!
+-- 4. interleave - yes, should stay parallelised, probably.
+-- basically can do everything together, getting and interleaving values as they appear
 fft :: [Complex Float] -> [Complex Float]
 fft [a] = [a]
-fft as = par_interleave ls rs
+fft as = (cs,ds) `par` ls `par` rs `par` par_interleave ls rs
   where
     (cs,ds) = bflyS as
     ls = fft cs
