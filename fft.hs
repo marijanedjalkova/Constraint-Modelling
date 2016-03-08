@@ -8,23 +8,19 @@ tw :: Int -> Int -> Complex Float
 tw n k = cis (-2 * pi * fromIntegral k / fromIntegral n)
 
 -- Discrete Fourier Transform -- O(n^2)
+-- doesn't make sense to par n and n' since they are O(1)
+
 dft :: [Complex Float] -> [Complex Float]
-dft xs = n`par` n' `par` [ sum [ xs!!j * tw n (j*k) | j <- [0..n']] | k <- [0..n']]
+dft xs = [ sum (calcSubList xs n 0 k) | k<-klist]
   where
+    klist = [0..n-1]
     n = length xs
-    n' = n-1
 
-
---parZipWith ::  (a -> b -> c) -> [a] -> [b] -> [c]
---parZipWith strat z as bs = 
- -- zipWith z as bs `using` parList strat
-
---parZipWith :: ( Traversable t , Foldable f , NFData c ) => ( a −> b −> c ) −> t a −> f b −> Par ( t c )
---parZipWith comb t f = let step ( x : xs ) y = ( xs , spawnP $ comb y x ) in 
-   -- (T.sequence . snd $ T.mapAccumL step (F.toList f ) t ) >>= T.mapM get
-
-
-
+calcSubList :: [Complex Float] -> Int-> Int-> Int -> [Complex Float]
+calcSubList [] _ _ _ = []
+calcSubList (x:xs) n j k = h `par` (rest `pseq` (h : rest))
+    where h = x * (tw n (j*k))
+          rest = calcSubList xs (n-1) (j+1) k
 -- Fast Fourier Transform
 
 -- In case you are wondering, this is the Decimation in Frequency (DIF) 
