@@ -11,6 +11,27 @@ tw n k = cis (-2 * pi * fromIntegral k / fromIntegral n)
 -- doesn't make sense to par n and n' since they are O(1)
 
 dft :: [Complex Float] -> [Complex Float]
+dft xs = dftfun xs klist n
+  where
+    klist = [0..n-1]
+    n = length xs
+
+dftfun :: [Complex Float] -> [Int] -> Int -> [Complex Float]
+dftfun [] _ _ = []
+dftfun _ [] _ = []
+dftfun [x] [k] n = [calcSubListSum [x] n 0 k]
+dftfun xs (k:klist) n =  h `par` (rest `pseq` (h : rest))
+    where h = calcSubListSum xs n 0 k
+          rest = dftfun xs klist n
+
+calcSubListSum :: [Complex Float] -> Int-> Int-> Int -> Complex Float
+calcSubListSum [] _ _ _ = 0
+calcSubListSum (x:xs) n j k = h `par` (rest `pseq` (h + rest))
+    where h = x * (tw n (j*k))
+          rest = calcSubListSum xs n (j+1) k
+
+{-
+dft :: [Complex Float] -> [Complex Float]
 dft xs = [ sum (calcSubList xs n 0 k) | k<-klist]
   where
     klist = [0..n-1]
@@ -20,7 +41,8 @@ calcSubList :: [Complex Float] -> Int-> Int-> Int -> [Complex Float]
 calcSubList [] _ _ _ = []
 calcSubList (x:xs) n j k = h `par` (rest `pseq` (h : rest))
     where h = x * (tw n (j*k))
-          rest = calcSubList xs (n-1) (j+1) k
+          rest = calcSubList xs n (j+1) k
+-}
 -- Fast Fourier Transform
 
 -- In case you are wondering, this is the Decimation in Frequency (DIF) 
