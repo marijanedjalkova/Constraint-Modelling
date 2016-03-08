@@ -32,26 +32,45 @@ dft xs = [ sum [ xs!!j * tw n (j*k) | j <- [0..n']] | k <- [0..n']]
 
 fft :: [Complex Float] -> [Complex Float]
 fft [a] = [a]
-fft as = my_interleave ls rs
+fft as = par_interleave ls rs
   where
     (cs,ds) = bflyS as
     ls = fft cs
     rs = fft ds
 
-my_interleave [] bs = bs
-my_interleave bs [] = bs
-my_interleave (a:as) (b:bs) = let h = [a] ++ [b] in
-    h `par` (my_interleave as bs)
+par_interleave [] bs = bs
+par_interleave bs [] = bs
+par_interleave (a:as) (b:bs) = h `par` (rest `pseq` (h ++ rest))
+    where h = [a,b]
+          rest = par_interleave as bs
 
-
+-- 1. halve as - no need to parallelise
+-- 2. los
+-- 3. ros (los and ros can be task parallelised)
+-- 4. rts - list comprehension can be parallelised
 bflyS :: [Complex Float] -> ([Complex Float], [Complex Float])
-bflyS as = (los,rts)
+bflyS as = los `par` ros `par` (los,rts)
   where
     (ls,rs) = halve as
-    los = zipWith (+) ls rs
-    ros = zipWith (-) ls rs
-    rts = zipWith (*) ros [tw (length as) i | i <- [0..(length ros) - 1]]
+    los = parZipWith (+) ls rs
+    ros = parZipWith (-) ls rs
+    list = [0..(length ros) - 1]
+    tweaked = tweakList (length as) list
+    rts = parZipWith (*) ros tweaked 
 
+tweakList :: Int -> [Int] -> [Complex Float]
+tweakList length [] = []
+tweakList length [x] = [tw length x]
+tweakList length (x:xs) = h `par` (rest `pseq` (h : rest))
+    where h = tw length x
+          rest = tweakList length xs
+
+parZipWith :: (a->a->a) -> [a] -> [a] -> [a]
+parZipWith f [] _ = []
+parZipWith f [x] list = zipWith f [x] list
+parZipWith f (x:xs) (y:ys) = h `par` (rest `pseq` (h : rest))
+    where h = f x y
+          rest = parZipWith f xs ys
 
 -- split the input into two halves
 halve as = splitAt n' as
