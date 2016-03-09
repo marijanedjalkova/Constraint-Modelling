@@ -8,8 +8,7 @@ tw :: Int -> Int -> Complex Float
 tw n k = cis (-2 * pi * fromIntegral k / fromIntegral n)
 
 -- Discrete Fourier Transform -- O(n^2)
--- doesn't make sense to par n and n' since they are O(1)
-
+{-
 dft :: [Complex Float] -> [Complex Float]
 dft xs = dftfun xs klist n
   where
@@ -26,23 +25,23 @@ dftfun xs (k:klist) n =  h `par` (rest `pseq` (h : rest))
 
 calcSubListSum :: [Complex Float] -> Int-> Int-> Int -> Complex Float
 calcSubListSum [] _ _ _ = 0
+calcSubListSum [x] n j k = [x * (tw n (j*k))]
+calcSubListSum (x:xs) n j k = h `par` (rest `pseq` (h + rest))
+    where h = x * (tw n (j*k))
+          rest = calcSubListSum xs n (j+1) k
+-}
+
+dft :: [Complex Float] -> [Complex Float]
+dft xs = [ (calcSubListSum xs n 0 k) | k<-[0..n-1]]
+  where
+    n = length xs
+
+calcSubListSum :: [Complex Float] -> Int-> Int-> Int -> Complex Float
+calcSubListSum [] _ _ _ = 0
 calcSubListSum (x:xs) n j k = h `par` (rest `pseq` (h + rest))
     where h = x * (tw n (j*k))
           rest = calcSubListSum xs n (j+1) k
 
-{-
-dft :: [Complex Float] -> [Complex Float]
-dft xs = [ sum (calcSubList xs n 0 k) | k<-klist]
-  where
-    klist = [0..n-1]
-    n = length xs
-
-calcSubList :: [Complex Float] -> Int-> Int-> Int -> [Complex Float]
-calcSubList [] _ _ _ = []
-calcSubList (x:xs) n j k = h `par` (rest `pseq` (h : rest))
-    where h = x * (tw n (j*k))
-          rest = calcSubList xs n (j+1) k
--}
 -- Fast Fourier Transform
 
 -- In case you are wondering, this is the Decimation in Frequency (DIF) 
@@ -55,11 +54,15 @@ calcSubList (x:xs) n j k = h `par` (rest `pseq` (h : rest))
 -- basically can do everything together, getting and interleaving values as they appear
 fft :: [Complex Float] -> [Complex Float]
 fft [a] = [a]
-fft as = (cs,ds) `par` ls `par` rs `par` par_interleave ls rs
+fft as = par_interleave ls rs
   where
     (cs,ds) = bflyS as
     ls = fft cs
     rs = fft ds
+
+
+interleave [] bs = bs
+interleave (a:as) bs = a : interleave bs as
 
 par_interleave [] bs = bs
 par_interleave bs [] = bs
