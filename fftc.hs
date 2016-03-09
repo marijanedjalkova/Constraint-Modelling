@@ -9,6 +9,19 @@ tw n k = cis (-2 * pi * fromIntegral k / fromIntegral n)
 
 -- Discrete Fourier Transform -- O(n^2)
 dft :: [Complex Float] -> [Complex Float]
+dft xs = firstList `par` secondList `par` (firstList ++ secondList)
+    where n = length xs
+          firstList = [(calcDFT2 xs k) | k<-[0..div n 2] ]
+          secondList = [(calcDFT2 xs k) | k<-[(div n 2) + 1..n-1] ]
+
+
+
+calcDFT2::[Complex Float]-> Int -> Complex Float
+calcDFT2 xs k = (subList k) `par` sum (subList k)
+    where subList k = calcSubList xs (length xs) 0 k
+
+{- This works but is not necessarily task control. Can argue that it is a case of divide and conquer though
+dft :: [Complex Float] -> [Complex Float]
 dft xs = calcDFT xs 0 
 
 calcDFT::[Complex Float]-> Int -> [Complex Float]
@@ -19,7 +32,7 @@ calcDFT xs k
           newsum = (subList k) `par` sum (subList k)
           subList k = calcSubList xs n 0 k
           rest = calcDFT xs (k+1)
-
+-}
 calcSubList :: [Complex Float] -> Int-> Int-> Int -> [Complex Float]
 calcSubList [] _ _ _ = []
 calcSubList [x] n j k = [x * (tw n (j*k))]
